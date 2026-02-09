@@ -44,7 +44,7 @@ def search_yakkan(query: str) -> str:
     Args:
         query: 検索キーワード（例: "契約期間", "解約", "届出"）
     """
-    from rag import search_documents
+    from src.utils.rag import search_documents
     return search_documents(query, k=3)
 
 

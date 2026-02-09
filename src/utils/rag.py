@@ -10,11 +10,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 
+# プロジェクトルート
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+
 # ドキュメントフォルダのパス
-DOCUMENTS_DIR = Path(__file__).parent / "documents"
+DOCUMENTS_DIR = PROJECT_ROOT / "documents"
 
 # Chroma の永続化ディレクトリ
-CHROMA_PERSIST_DIR = Path(__file__).parent / ".chroma_db"
+CHROMA_PERSIST_DIR = PROJECT_ROOT / ".chroma_db"
 
 
 def load_documents():

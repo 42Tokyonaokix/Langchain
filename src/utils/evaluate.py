@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langsmith import Client
 from langsmith.evaluation import evaluate
 from langchain_openai import ChatOpenAI
-from rag import search_documents
+from src.utils.rag import search_documents
 
 load_dotenv()
 
