@@ -2,8 +2,11 @@
 
 import os
 from pathlib import Path
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from dotenv import load_dotenv
+
+load_dotenv()
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 
@@ -15,18 +18,37 @@ CHROMA_PERSIST_DIR = Path(__file__).parent / ".chroma_db"
 
 
 def load_documents():
-    """documents/ フォルダからドキュメントを読み込む"""
+    """documents/ フォルダからドキュメントを読み込む（txt, pdf対応）"""
     if not DOCUMENTS_DIR.exists():
         DOCUMENTS_DIR.mkdir(parents=True)
         return []
 
-    loader = DirectoryLoader(
+    all_docs = []
+
+    # テキストファイルを読み込み
+    txt_loader = DirectoryLoader(
         str(DOCUMENTS_DIR),
         glob="**/*.txt",
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"},
     )
-    return loader.load()
+    try:
+        all_docs.extend(txt_loader.load())
+    except Exception as e:
+        print(f"テキストファイル読み込みエラー: {e}")
+
+    # PDFファイルを読み込み
+    pdf_loader = DirectoryLoader(
+        str(DOCUMENTS_DIR),
+        glob="**/*.pdf",
+        loader_cls=PyPDFLoader,
+    )
+    try:
+        all_docs.extend(pdf_loader.load())
+    except Exception as e:
+        print(f"PDF読み込みエラー: {e}")
+
+    return all_docs
 
 
 def split_documents(documents, chunk_size=500, chunk_overlap=50):

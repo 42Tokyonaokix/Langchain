@@ -3,10 +3,9 @@
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage
+from langgraph.prebuilt import create_react_agent
 
 # 環境変数の読み込み
 load_dotenv()
@@ -39,14 +38,14 @@ def get_current_time() -> str:
 
 
 @tool
-def search_web(query: str) -> str:
-    """ウェブ検索をシミュレートします（実際の検索機能は未実装）。
+def search_yakkan(query: str) -> str:
+    """電力約款・契約情報を検索します。契約期間、料金、解約、届出などの質問に使用してください。
 
     Args:
-        query: 検索クエリ
+        query: 検索キーワード（例: "契約期間", "解約", "届出"）
     """
-    # 実際の実装では、SerpAPI や Tavily などの検索APIを使用
-    return f"「{query}」の検索結果: この機能は現在シミュレーションモードです。実際の検索APIを統合してください。"
+    from rag import search_documents
+    return search_documents(query, k=3)
 
 
 def create_agent():
@@ -58,25 +57,21 @@ def create_agent():
         temperature=0.7,
     )
 
-    tools = [calculator, get_current_time, search_web]
+    tools = [calculator, get_current_time, search_yakkan]
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """あなたは親切で有能なAIアシスタントです。
-ユーザーの質問に対して、必要に応じてツールを使用して回答してください。
-日本語で応答してください。"""),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
+    system_prompt = """あなたはデジタルグリッド株式会社の電力契約に関するカスタマーサポートAIです。
 
-    agent = create_tool_calling_agent(llm, tools, prompt)
+ユーザーから電力契約、約款、料金、届出などに関する質問を受けた場合は、
+必ず search_yakkan ツールを使って約款情報を検索し、その情報に基づいて回答してください。
 
-    return AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=True,  # ツール呼び出しの詳細を表示
-        handle_parsing_errors=True,
-    )
+回答する際は：
+- 約款の内容を正確に伝える
+- わかりやすい言葉で説明する
+- 不明な点は「約款に記載がないため、お客様センターにお問い合わせください」と案内する
+
+日本語で応答してください。"""
+
+    return create_react_agent(llm, tools, prompt=system_prompt)
 
 
 def main():
@@ -86,8 +81,8 @@ def main():
     print("終了するには 'quit' または 'exit' と入力してください")
     print("=" * 50)
 
-    agent_executor = create_agent()
-    chat_history = []
+    agent = create_agent()
+    messages = []
 
     while True:
         try:
@@ -100,18 +95,19 @@ def main():
                 print("さようなら！")
                 break
 
-            # エージェントを実行
-            result = agent_executor.invoke({
-                "input": user_input,
-                "chat_history": chat_history,
-            })
+            # メッセージを追加
+            messages.append(HumanMessage(content=user_input))
 
-            response = result["output"]
+            # エージェントを実行
+            result = agent.invoke({"messages": messages})
+
+            # 最後のAIメッセージを取得
+            ai_message = result["messages"][-1]
+            response = ai_message.content
             print(f"\nAssistant: {response}")
 
             # 会話履歴を更新
-            chat_history.append(HumanMessage(content=user_input))
-            chat_history.append(AIMessage(content=response))
+            messages.append(ai_message)
 
         except KeyboardInterrupt:
             print("\n\n中断されました。さようなら！")
