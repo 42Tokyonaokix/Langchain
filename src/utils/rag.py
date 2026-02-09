@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
-from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader, CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
@@ -50,6 +50,18 @@ def load_documents():
         all_docs.extend(pdf_loader.load())
     except Exception as e:
         print(f"PDF読み込みエラー: {e}")
+
+    # CSVファイルを読み込み
+    csv_loader = DirectoryLoader(
+        str(DOCUMENTS_DIR),
+        glob="**/*.csv",
+        loader_cls=CSVLoader,
+        loader_kwargs={"encoding": "utf-8"},
+    )
+    try:
+        all_docs.extend(csv_loader.load())
+    except Exception as e:
+        print(f"CSV読み込みエラー: {e}")
 
     return all_docs
 
