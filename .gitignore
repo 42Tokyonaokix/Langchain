@@ -16,3 +16,6 @@ env/
 
 # Output
 claude_output/
+
+# Vector DB
+.chroma_db/
