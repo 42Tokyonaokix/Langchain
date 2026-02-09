@@ -19,3 +19,6 @@ claude_output/
 
 # Vector DB
 .chroma_db/
+
+# Documents (PDFs, etc.)
+documents/
