@@ -45,7 +45,7 @@ def search_yakkan(query: str) -> str:
         query: 検索キーワード（例: "契約期間", "解約", "届出", "インバランス", "操作方法"）
     """
     from src.utils.rag import search_documents
-    return search_documents(query, k=5)
+    return search_documents(query, k=10)
 
 
 def create_agent():

@@ -23,4 +23,4 @@ claude_output/
 # Documents (PDFs, etc.)
 documents/
 
-rag_output_log/*
+rag_output_log/*.chunks_cache.pkl
