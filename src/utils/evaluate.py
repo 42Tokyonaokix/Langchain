@@ -1,41 +1,37 @@
 """
 LangSmith 評価スクリプト
-データセットを使ってRAG/LLMの回答精度を評価します
+データセットを使ってchatbotエージェントの回答精度を評価します
 """
 import os
 from dotenv import load_dotenv
 from langsmith import Client
 from langsmith.evaluation import evaluate
 from langchain_openai import ChatOpenAI
-from src.utils.rag import search_documents
+from langchain_core.messages import HumanMessage
+from src.main.chatbot import create_agent
 
 load_dotenv()
 
 client = Client()
 
-# 評価対象のLLM
+# 評価用のLLM（evaluator用）
 llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0)
 
 
 def target(inputs: dict) -> dict:
-    """評価対象の関数。質問を受け取り、RAGで検索して回答を返す"""
+    """評価対象の関数。chatbotエージェントを使って回答"""
     question = inputs["question"]
 
-    # RAGで約款を検索
-    context = search_documents(question, k=3)
+    # chatbotエージェントを作成
+    agent = create_agent()
 
-    # 検索結果を元にLLMが回答
-    response = llm.invoke(f"""あなたは電力約款に関するカスタマーサポートAIです。
-以下の参考情報を元に、質問に簡潔に回答してください。
-参考情報にない内容は「約款に記載がないため、お客様センターにお問い合わせください」と回答してください。
+    # エージェントを実行
+    result = agent.invoke({"messages": [HumanMessage(content=question)]})
 
-【参考情報】
-{context}
+    # 最後のAIメッセージを取得
+    ai_message = result["messages"][-1]
 
-【質問】
-{question}""")
-
-    return {"answer": response.content}
+    return {"answer": ai_message.content}
 
 
 def correctness_evaluator(outputs: dict, reference_outputs: dict) -> dict:

@@ -6,14 +6,14 @@ services:
     stdin_open: true  # 対話モード -i
     tty: true         # 対話モード -t
     env_file:
-      - .env
+      - ../.env
     environment:
       - REDIS_URL=redis://redis:6379
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/chatbot
     volumes:
-      - .:/app
+      - ..:/app
     depends_on:
       - redis
       - chroma

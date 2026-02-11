@@ -45,6 +45,8 @@ def load_documents():
         str(DOCUMENTS_DIR),
         glob="**/*.pdf",
         loader_cls=PyPDFLoader,
+        show_progress=True,
+        use_multithreading=False,
     )
     try:
         all_docs.extend(pdf_loader.load())
@@ -66,8 +68,14 @@ def load_documents():
     return all_docs
 
 
-def split_documents(documents, chunk_size=500, chunk_overlap=50):
-    """ドキュメントをチャンクに分割"""
+def split_documents(documents, chunk_size=1000, chunk_overlap=100):
+    """ドキュメントをチャンクに分割
+
+    Args:
+        documents: 分割対象のドキュメント
+        chunk_size: チャンクサイズ（デフォルト1000文字）
+        chunk_overlap: オーバーラップ（デフォルト100文字）
+    """
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,

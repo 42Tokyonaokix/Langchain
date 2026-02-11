@@ -22,3 +22,5 @@ claude_output/
 
 # Documents (PDFs, etc.)
 documents/
+
+rag_output_log/*
