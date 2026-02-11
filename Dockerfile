@@ -17,4 +17,4 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 
 # 起動コマンド
-CMD ["python", "chatbot.py"]
+CMD ["python", "run_chatbot.py"]
