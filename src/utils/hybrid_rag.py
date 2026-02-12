@@ -9,6 +9,7 @@
 
 import os
 import pickle
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -24,15 +25,25 @@ import MeCab
 
 # パス設定
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-CHROMA_PERSIST_DIR = PROJECT_ROOT / ".chroma_db"
-BM25_INDEX_PATH = PROJECT_ROOT / ".bm25_index.pkl"
+# Agenticインデックスを使用（より高精度な構造化分割）
+CHROMA_PERSIST_DIR = PROJECT_ROOT / ".chroma_db_agentic"
+BM25_INDEX_PATH = PROJECT_ROOT / ".bm25_index_agentic.pkl"
 
-# グローバルキャッシュ
+# グローバルキャッシュ（インデックス切り替え時はNoneにリセット）
 _embeddings = None
 _vectorstore = None
 _bm25_index = None
 _bm25_docs = None
 _mecab = None
+
+
+def reset_cache():
+    """キャッシュをリセット（インデックス切り替え時に使用）"""
+    global _embeddings, _vectorstore, _bm25_index, _bm25_docs
+    _embeddings = None
+    _vectorstore = None
+    _bm25_index = None
+    _bm25_docs = None
 
 
 def get_mecab():
@@ -47,6 +58,54 @@ def tokenize(text: str) -> list[str]:
     """日本語テキストをトークン化"""
     mecab = get_mecab()
     return mecab.parse(text).strip().split()
+
+
+def detect_voltage_type(query: str) -> Optional[str]:
+    """
+    クエリから電圧タイプを検出
+
+    Returns:
+        "高圧特別高圧", "特別高圧", "高圧", "低圧", or None
+    """
+    # 優先順位順にチェック（より具体的なものを先に）
+    if "高圧特別高圧" in query or ("高圧" in query and "特別高圧" in query):
+        return "高圧特別高圧"
+    if "特別高圧" in query:
+        return "特別高圧"
+    if "高圧" in query and "低圧" not in query:
+        return "高圧"
+    if "低圧" in query:
+        return "低圧"
+    return None
+
+
+def filter_by_voltage_type(results: list[dict], voltage_type: str) -> list[dict]:
+    """
+    検索結果を電圧タイプでフィルタリング・優先順位付け
+
+    - 一致するものを上位に
+    - 電圧タイプがないものは中位に
+    - 不一致のものは下位に
+    """
+    matched = []
+    neutral = []  # voltage_typeがないドキュメント
+    unmatched = []
+
+    for result in results:
+        doc_voltage = result.get("metadata", {}).get("voltage_type", "")
+
+        if doc_voltage == voltage_type:
+            matched.append(result)
+        elif doc_voltage == "":
+            neutral.append(result)
+        else:
+            # 高圧特別高圧は高圧・特別高圧どちらの質問にもマッチさせる
+            if doc_voltage == "高圧特別高圧" and voltage_type in ["高圧", "特別高圧"]:
+                matched.append(result)
+            else:
+                unmatched.append(result)
+
+    return matched + neutral + unmatched
 
 
 def get_embeddings():
@@ -262,6 +321,12 @@ def hybrid_search(query: str, k: int = 5, early_exit_threshold: float = 0.8) -> 
     # RRF統合
     if results_bm25 or results_vector:
         fused = rrf_fusion([results_bm25, results_vector])
+
+        # 電圧タイプが質問に含まれている場合のみフィルタリング
+        voltage_type = detect_voltage_type(query)
+        if voltage_type:
+            fused = filter_by_voltage_type(fused, voltage_type)
+
         return fused[:k]
 
     return []
@@ -296,16 +361,19 @@ def search_with_context(query: str, k: int = 5) -> str:
         if "documents/" in source:
             source = source.split("documents/")[-1]
 
-        # メタデータからセクション・ドキュメントタイプ・エリアを取得
+        # メタデータからセクション・ドキュメントタイプ・エリア・電圧タイプを取得
         doc_type = result["metadata"].get("doc_type", "")
         section = result["metadata"].get("section", "")
         area = result["metadata"].get("area", "")
+        voltage_type = result["metadata"].get("voltage_type", "")
         search_source = result.get("source", "")
 
         # ヘッダー行を構築
         header_parts = [f"出典: {source}"]
         if doc_type:
             header_parts.append(f"種別: {doc_type}")
+        if voltage_type:
+            header_parts.append(f"電圧: {voltage_type}")
         if area:
             header_parts.append(f"エリア: {area}")
         if section:

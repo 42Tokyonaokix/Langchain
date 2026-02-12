@@ -84,6 +84,16 @@ def clean_document(doc):
             metadata["area"] = area
             break
 
+    # 電圧タイプを抽出（高圧/低圧）
+    if "高圧特別高圧" in source:
+        metadata["voltage_type"] = "高圧特別高圧"
+    elif "特別高圧" in source:
+        metadata["voltage_type"] = "特別高圧"
+    elif "高圧" in source and "低圧" not in source:
+        metadata["voltage_type"] = "高圧"
+    elif "低圧" in source:
+        metadata["voltage_type"] = "低圧"
+
     # セクションタイトルを抽出してメタデータに追加
     section = extract_section_title(content)
     if section:
@@ -176,6 +186,36 @@ def load_documents():
     return all_docs
 
 
+def add_context_prefix(chunk):
+    """
+    チャンクの本文にコンテキスト情報を追加
+    （ファイル名のみに含まれる情報を本文にも追加して検索精度を向上）
+    """
+    source = chunk.metadata.get("source", "")
+    prefix_parts = []
+
+    # エリア情報を追加
+    area = chunk.metadata.get("area", "")
+    if area:
+        prefix_parts.append(f"【{area}エリア】")
+
+    # 電圧タイプを追加
+    voltage = chunk.metadata.get("voltage_type", "")
+    if voltage:
+        prefix_parts.append(f"【{voltage}】")
+
+    # ドキュメントタイプを追加
+    doc_type = chunk.metadata.get("doc_type", "")
+    if doc_type:
+        prefix_parts.append(f"【{doc_type}】")
+
+    if prefix_parts:
+        prefix = " ".join(prefix_parts) + "\n"
+        chunk.page_content = prefix + chunk.page_content
+
+    return chunk
+
+
 def split_documents(documents, chunk_size=500, chunk_overlap=50):
     """ドキュメントをチャンクに分割し、セクション情報を伝播"""
     splitter = RecursiveCharacterTextSplitter(
@@ -204,6 +244,9 @@ def split_documents(documents, chunk_size=500, chunk_overlap=50):
         elif "section" not in chunk.metadata and key in current_section:
             # セクションがなく、同じページの前のチャンクにセクションがあれば継承
             chunk.metadata["section"] = current_section[key]
+
+    # コンテキスト情報をチャンク本文に追加（検索精度向上のため）
+    chunks = [add_context_prefix(chunk) for chunk in chunks]
 
     return chunks
 
