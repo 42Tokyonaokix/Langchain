@@ -44,13 +44,27 @@ def load_test_cases() -> list[dict]:
     return cases
 
 
-def run_chatbot(question: str) -> str:
-    """チャットボットを実行して回答を取得"""
+def run_chatbot(question: str) -> dict:
+    """チャットボットを実行して回答とソースを取得"""
     from src.main.chatbot import create_agent
+    from langchain_core.messages import ToolMessage
 
     agent = create_agent()
     result = agent.invoke({"messages": [HumanMessage(content=question)]})
-    return result["messages"][-1].content
+
+    # 最終回答
+    answer = result["messages"][-1].content
+
+    # ToolMessage（検索結果）を抽出
+    sources = []
+    for msg in result["messages"]:
+        if isinstance(msg, ToolMessage):
+            sources.append(msg.content)
+
+    return {
+        "answer": answer,
+        "sources": "\n---\n".join(sources) if sources else ""
+    }
 
 
 def evaluate_answer(question: str, expected: str, actual: str, llm: ChatOpenAI) -> dict:
@@ -130,7 +144,9 @@ def run_evaluation(max_cases: int = None, output_name: str = None):
 
         try:
             # チャットボット実行
-            actual = run_chatbot(case["question"])
+            chatbot_result = run_chatbot(case["question"])
+            actual = chatbot_result["answer"]
+            sources = chatbot_result["sources"]
             latency = time.time() - start_time
 
             # 評価
@@ -144,6 +160,7 @@ def run_evaluation(max_cases: int = None, output_name: str = None):
                 "question": case["question"],
                 "expected": case["expected"],
                 "actual": actual,
+                "sources": sources,
                 "score": eval_result["score"],
                 "reason": eval_result["reason"],
                 "latency": round(latency, 2),
@@ -160,6 +177,7 @@ def run_evaluation(max_cases: int = None, output_name: str = None):
                 "question": case["question"],
                 "expected": case["expected"],
                 "actual": "",
+                "sources": "",
                 "score": 0.0,
                 "reason": f"エラー: {str(e)}",
                 "latency": 0,
@@ -198,7 +216,7 @@ def run_evaluation(max_cases: int = None, output_name: str = None):
 
     with open(output_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=[
-            "id", "category", "question", "expected", "actual",
+            "id", "category", "question", "expected", "actual", "sources",
             "score", "reason", "latency", "status"
         ])
         writer.writeheader()

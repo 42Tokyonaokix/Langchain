@@ -74,6 +74,16 @@ def clean_document(doc):
     elif "qa_list" in source:
         metadata["doc_type"] = "Q&A"
 
+    # 電力エリア（送配電事業者）を抽出
+    area_names = [
+        "東京電力", "関西電力", "中部電力", "九州電力", "東北電力",
+        "北海道電力", "中国電力", "四国電力", "北陸電力", "沖縄電力"
+    ]
+    for area in area_names:
+        if area in source:
+            metadata["area"] = area
+            break
+
     # セクションタイトルを抽出してメタデータに追加
     section = extract_section_title(content)
     if section:

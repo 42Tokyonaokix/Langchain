@@ -296,15 +296,18 @@ def search_with_context(query: str, k: int = 5) -> str:
         if "documents/" in source:
             source = source.split("documents/")[-1]
 
-        # メタデータからセクション・ドキュメントタイプを取得
+        # メタデータからセクション・ドキュメントタイプ・エリアを取得
         doc_type = result["metadata"].get("doc_type", "")
         section = result["metadata"].get("section", "")
+        area = result["metadata"].get("area", "")
         search_source = result.get("source", "")
 
         # ヘッダー行を構築
         header_parts = [f"出典: {source}"]
         if doc_type:
             header_parts.append(f"種別: {doc_type}")
+        if area:
+            header_parts.append(f"エリア: {area}")
         if section:
             header_parts.append(f"セクション: {section}")
         if search_source:
