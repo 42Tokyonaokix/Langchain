@@ -5,10 +5,15 @@ test_cases.csv を読み込んでチャットボットの精度を評価し、
 結果をCSVファイルに出力します。
 """
 
+import sys
 import csv
 import time
 import os
 from pathlib import Path
+
+# プロジェクトルートをパスに追加
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -17,18 +22,17 @@ from langchain_core.messages import HumanMessage
 load_dotenv()
 
 # パス設定
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-TEST_CASES_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
+DEFAULT_TEST_CASES_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
 RESULTS_DIR = PROJECT_ROOT / "evaluation_results"
 
 # 評価用LLM（コスト削減のためgpt-4o-miniを使用）
 EVAL_MODEL = "gpt-4o-mini"
 
 
-def load_test_cases() -> list[dict]:
+def load_test_cases(test_cases_path: Path) -> list[dict]:
     """テストケースを読み込む"""
     cases = []
-    with open(TEST_CASES_PATH, "r", encoding="utf-8") as f:
+    with open(test_cases_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             question = row.get("質問", row.get("question", "")).strip()
@@ -114,14 +118,18 @@ def evaluate_answer(question: str, expected: str, actual: str, llm: ChatOpenAI) 
     return {"score": score, "reason": reason}
 
 
-def run_evaluation(max_cases: int = None, output_name: str = None):
+def run_evaluation(max_cases: int = None, output_name: str = None, test_cases_path: Path = None):
     """評価を実行"""
+    if test_cases_path is None:
+        test_cases_path = DEFAULT_TEST_CASES_PATH
+
     print("=" * 60)
     print("ローカル評価を開始します")
+    print(f"テストケース: {test_cases_path}")
     print("=" * 60)
 
     # テストケース読み込み
-    test_cases = load_test_cases()
+    test_cases = load_test_cases(test_cases_path)
     if max_cases:
         test_cases = test_cases[:max_cases]
     print(f"テストケース: {len(test_cases)}件")
@@ -206,13 +214,19 @@ def run_evaluation(max_cases: int = None, output_name: str = None):
         print(f"正解率 (>=0.7): {high+mid}件 ({(high+mid)/len(scores):.1%})")
 
     # CSV出力
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     if output_name:
         filename = f"{output_name}.csv"
     else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"eval_{timestamp}.csv"
 
-    output_path = RESULTS_DIR / filename
+    # テストケースファイル名からディレクトリ名を決定
+    test_case_name = test_cases_path.stem  # 拡張子なしのファイル名
+    output_dir = RESULTS_DIR / test_case_name
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / filename
 
     with open(output_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=[
@@ -234,14 +248,17 @@ def main():
     # コマンドライン引数
     max_cases = None
     output_name = None
+    test_cases_path = None
 
     for arg in sys.argv[1:]:
         if arg.startswith("--max="):
             max_cases = int(arg.split("=")[1])
         elif arg.startswith("--output="):
             output_name = arg.split("=")[1]
+        elif arg.startswith("--test="):
+            test_cases_path = Path(arg.split("=")[1])
 
-    run_evaluation(max_cases=max_cases, output_name=output_name)
+    run_evaluation(max_cases=max_cases, output_name=output_name, test_cases_path=test_cases_path)
 
 
 if __name__ == "__main__":

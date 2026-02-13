@@ -4,18 +4,20 @@ LangSmithにデータセットをアップロードします
 
 test_cases.csv からQ&Aデータを読み込みます
 """
-import os
+import sys
 import csv
 from pathlib import Path
-from dotenv import load_dotenv
+
+# プロジェクトルートをパスに追加
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from langsmith import Client
 
-# .envファイルを読み込み
-load_dotenv()
+from src.config import settings
 
 # APIキー確認
-api_key = os.getenv("LANGCHAIN_API_KEY")
-if not api_key or api_key == "your-langsmith-api-key":
+if not settings.LANGCHAIN_API_KEY or settings.LANGCHAIN_API_KEY == "your-langsmith-api-key":
     print("エラー: LANGCHAIN_API_KEY が設定されていません")
     print(".env ファイルに有効なLangSmith APIキーを設定してください")
     print("APIキーは https://smith.langchain.com/settings で取得できます")
@@ -23,12 +25,8 @@ if not api_key or api_key == "your-langsmith-api-key":
 
 client = Client()
 
-# データセット名
-DATASET_NAME = "electricity-yakkan-qa"
-
-# CSVファイルパス（テスト用データセット）
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-CSV_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
+# パス設定
+DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
 
 
 def load_qa_from_csv(csv_path: Path) -> list[dict]:
@@ -54,39 +52,71 @@ def load_qa_from_csv(csv_path: Path) -> list[dict]:
     return examples
 
 
+def get_unique_dataset_name(base_name: str) -> str:
+    """重複しないデータセット名を取得（番号を増やしていく）"""
+    # まずベース名で試す
+    try:
+        client.read_dataset(dataset_name=base_name)
+    except Exception:
+        return base_name  # 存在しないのでそのまま使用
+
+    # 番号付きで試す
+    n = 2
+    while True:
+        candidate = f"{base_name}_{n}"
+        try:
+            client.read_dataset(dataset_name=candidate)
+            n += 1
+        except Exception:
+            return candidate
+
+
 def main():
+    # コマンドライン引数の解析
+    csv_path = DEFAULT_CSV_PATH
+    dataset_name = None
+
+    for arg in sys.argv[1:]:
+        if arg.startswith("--test="):
+            csv_path = Path(arg.split("=")[1])
+        elif arg.startswith("--name="):
+            dataset_name = arg.split("=")[1]
+
+    # データセット名をファイル名から自動生成（指定がない場合）
+    if dataset_name is None:
+        base_name = f"electricity-yakkan-qa-{csv_path.stem}"
+    else:
+        base_name = dataset_name
+
     # CSVからQ&Aデータを読み込み
-    if not CSV_PATH.exists():
-        print(f"エラー: CSVファイルが見つかりません: {CSV_PATH}")
+    if not csv_path.exists():
+        print(f"エラー: CSVファイルが見つかりません: {csv_path}")
         exit(1)
 
-    examples = load_qa_from_csv(CSV_PATH)
+    examples = load_qa_from_csv(csv_path)
 
     if not examples:
         print("エラー: Q&Aデータが読み込めませんでした")
         exit(1)
 
     print(f"CSVから {len(examples)} 件のQ&Aデータを読み込みました")
+    print(f"テストケース: {csv_path}")
 
-    # 既存のデータセットを削除
-    try:
-        existing = client.read_dataset(dataset_name=DATASET_NAME)
-        print(f"既存のデータセット '{DATASET_NAME}' を削除します...")
-        client.delete_dataset(dataset_id=existing.id)
-        print("削除完了")
-    except Exception:
-        print("既存のデータセットはありません。新規作成します。")
+    # 重複しないデータセット名を取得
+    dataset_name = get_unique_dataset_name(base_name)
+    if dataset_name != base_name:
+        print(f"データセット名 '{base_name}' は既に存在するため '{dataset_name}' を使用します")
 
     # データセット作成
     dataset = client.create_dataset(
-        dataset_name=DATASET_NAME,
-        description="電力約款に関するQ&Aデータセット（RAG評価用）- test_cases.csvから生成"
+        dataset_name=dataset_name,
+        description=f"電力約款に関するQ&Aデータセット（RAG評価用）- {csv_path.name}から生成"
     )
 
     # サンプル登録
     client.create_examples(dataset_id=dataset.id, examples=examples)
 
-    print(f"データセット '{DATASET_NAME}' を作成しました")
+    print(f"データセット '{dataset_name}' を作成しました")
     print(f"登録件数: {len(examples)}件")
     print(f"データセットID: {dataset.id}")
 
