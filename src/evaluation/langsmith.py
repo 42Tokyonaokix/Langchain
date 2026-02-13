@@ -8,7 +8,7 @@ from langsmith import Client
 from langsmith.evaluation import evaluate
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
-from src.main.chatbot import create_agent
+from src.chatbot.agent import create_agent
 
 load_dotenv()
 

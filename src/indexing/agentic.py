@@ -26,7 +26,7 @@ from langchain_core.documents import Document
 
 # パス設定
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-DOCUMENTS_DIR = PROJECT_ROOT / "documents"
+DOCUMENTS_DIR = PROJECT_ROOT / "data" / "documents"
 CHROMA_PERSIST_DIR = PROJECT_ROOT / ".chroma_db_agentic"
 
 # LLM設定

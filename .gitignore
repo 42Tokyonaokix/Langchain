@@ -16,4 +16,12 @@ env/
 
 # Output
 claude_output/
-src/__pycache__ src/main/__pycache__ src/utils/__pycache__ 
+evaluation_results/
+
+# Data (test cases)
+data/test_cases*
+
+# ChromaDB / BM25 Index
+.chroma_db/
+.chroma_db_agentic/
+.bm25_index*.pkl

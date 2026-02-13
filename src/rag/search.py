@@ -84,7 +84,7 @@ def get_vectorstore():
         if not CHROMA_PERSIST_DIR.exists():
             raise FileNotFoundError(
                 f"ChromaDBが見つかりません: {CHROMA_PERSIST_DIR}\n"
-                "先に 'python src/utils/index.py' を実行してインデックスを作成してください。"
+                "先に 'python scripts/run_index.py' を実行してインデックスを作成してください。"
             )
         _vectorstore = Chroma(
             persist_directory=str(CHROMA_PERSIST_DIR),

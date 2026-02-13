@@ -28,7 +28,7 @@ DATASET_NAME = "electricity-yakkan-qa"
 
 # CSVファイルパス（テスト用データセット）
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-CSV_PATH = PROJECT_ROOT / "test_cases.csv"
+CSV_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
 
 
 def load_qa_from_csv(csv_path: Path) -> list[dict]:

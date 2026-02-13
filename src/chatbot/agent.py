@@ -26,7 +26,7 @@ def search_manual(query: str) -> str:
     Args:
         query: 検索キーワード
     """
-    from src.utils.hybrid_rag import search_with_context
+    from src.rag.hybrid import search_with_context
     return search_with_context(query, k=5)
 
 

@@ -18,7 +18,7 @@ load_dotenv()
 
 # パス設定
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-TEST_CASES_PATH = PROJECT_ROOT / "test_cases.csv"
+TEST_CASES_PATH = PROJECT_ROOT / "data" / "test_cases.csv"
 RESULTS_DIR = PROJECT_ROOT / "evaluation_results"
 
 # 評価用LLM（コスト削減のためgpt-4o-miniを使用）
@@ -46,7 +46,7 @@ def load_test_cases() -> list[dict]:
 
 def run_chatbot(question: str) -> dict:
     """チャットボットを実行して回答とソースを取得"""
-    from src.main.chatbot import create_agent
+    from src.chatbot.agent import create_agent
     from langchain_core.messages import ToolMessage
 
     agent = create_agent()
