@@ -1,0 +1,64 @@
+# プロジェクト名を明示的に設定（他リポジトリとの競合を防ぐ）
+name: langchain-hs
+
+services:
+  # メインのチャットボットアプリ
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: langchain-hs-chatbot
+    stdin_open: true  # 対話モード -i
+    tty: true         # 対話モード -t
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/chatbot
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - chroma
+      - postgres
+
+  # 会話履歴・キャッシュ用
+  redis:
+    image: redis:7-alpine
+    container_name: langchain-hs-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes  # 永続化有効
+
+  # ベクトルDB（RAG用）
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: langchain-hs-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+
+  # データ永続化（ユーザー情報・ログ等）
+  postgres:
+    image: postgres:16-alpine
+    container_name: langchain-hs-postgres
+    ports:
+      - "54333:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=chatbot
+
+volumes:
+  redis_data:      # Redisデータの永続化
+  chroma_data:     # ChromaDBデータの永続化
+  postgres_data:   # PostgreSQLデータの永続化
